@@ -108,15 +108,15 @@ class FitbitLogger < Slogger
 
             @log.info("Logging Fitbit summary for #{timestring}")
 
-            # activities = client.activities_on_date(timestring)
-            # summary = activities['summary']
-            # steps = summary['steps']
-            # floors = summary['floors']
-            # distance = summary['distances'][0]['distance']
-            # distanceUnit = client.label_for_measurement(:distance, false)
-            # veryActiveMinutes = summary['veryActiveMinutes']
-            # caloriesOut = summary["caloriesOut"]
-            # foodsEaten = ""
+            activities = client.activities_on_date(timestring)
+            summary = activities['summary']
+            steps = summary['steps']
+            floors = summary['floors']
+            distance = summary['distances'][0]['distance']
+            distanceUnit = client.label_for_measurement(:distance, false)
+            veryActiveMinutes = summary['veryActiveMinutes']
+            caloriesOut = summary["caloriesOut"]
+            foodsEaten = ""
 
             if config['fitbit_log_body_measurements']
                 measurements = client.body_measurements_on_date(timestring)
@@ -187,10 +187,10 @@ class FitbitLogger < Slogger
             tags = config['fitbit_tags'] || ''
             tags = "\n\n#{tags}\n" unless tags == ''
 
-            # output = "**Steps:** #{steps}\n**Floors:** #{floors}\n**Distance:** #{distance} #{distanceUnit}\n**Very Active Minutes:** #{veryActiveMinutes}\n**Calories Out:** #{caloriesOut}\n"
+            output = "**Steps:** #{steps}\n**Floors:** #{floors}\n**Distance:** #{distance} #{distanceUnit}\n**Very Active Minutes:** #{veryActiveMinutes}\n**Calories Out:** #{caloriesOut}\n"
 
             if config['fitbit_log_body_measurements']
-                output = "**Weight:** #{weight} #{weightUnit}\n**BMI:** #{bmi}\n"
+                output += "**Weight:** #{weight} #{weightUnit}\n**BMI:** #{bmi}\n"
             end
             if config['fitbit_log_water']
             	output += "**Water Intake:** #{loggedWater} #{waterUnit}\n"
