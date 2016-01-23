@@ -124,7 +124,7 @@ class FitbitLogger < Slogger
                 bmi = measurements['body']['bmi']
                 weightUnit = client.label_for_measurement(:weight, false)
                 # Don't log anything if my weight is 0. That just means I didn't use the scale that day
-                if weight == 0
+                if weight == 0 && steps == 0
                     return config
                 end
             end
@@ -189,7 +189,7 @@ class FitbitLogger < Slogger
 
             output = "**Steps:** #{steps}\n**Floors:** #{floors}\n**Distance:** #{distance} #{distanceUnit}\n**Very Active Minutes:** #{veryActiveMinutes}\n**Calories Out:** #{caloriesOut}\n"
 
-            if config['fitbit_log_body_measurements']
+            if config['fitbit_log_body_measurements'] && weight != 0
                 output += "**Weight:** #{weight} #{weightUnit}\n**BMI:** #{bmi}\n"
             end
             if config['fitbit_log_water']
