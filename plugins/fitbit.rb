@@ -124,9 +124,6 @@ class FitbitLogger < Slogger
                 bmi = measurements['body']['bmi']
                 weightUnit = client.label_for_measurement(:weight, false)
                 # Don't log anything if my weight is 0. That just means I didn't use the scale that day
-                if weight == 0 && steps == 0
-                    return config
-                end
             end
             if config['fitbit_log_water']
                 water = client.water_on_date(timestring)
@@ -204,11 +201,13 @@ class FitbitLogger < Slogger
             end
 
             # Create a journal entry
-            options = {}
-            options['content'] = "## Fitbit - Summary for #{currentDate.strftime(@date_format)}\n\n#{output}#{tags}"
-            options['datestamp'] = currentDate.utc.iso8601
-            sl = DayOne.new
-            sl.to_dayone(options)
+            if weight > 0 || steps > 0
+                options = {}
+                options['content'] = "## Fitbit - Summary for #{currentDate.strftime(@date_format)}\n\n#{output}#{tags}"
+                options['datestamp'] = currentDate.utc.iso8601
+                sl = DayOne.new
+                sl.to_dayone(options)
+            end
             $i += 1
         end
         return config
