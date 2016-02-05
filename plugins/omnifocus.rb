@@ -66,6 +66,12 @@ class OmniFocusLogger < Slogger
     until $i >= days  do
       currentDate = Time.now - ((60 * 60 * 24) * $i)
       timestring = currentDate.strftime('%d/%m/%Y')
+      tomorrowDate = currentDate + (60*60*24)
+      tomorrowString = tomorrowDate.strftime('%d/%m/%Y')
+      output = ""
+      tasks_completed = 0
+
+
 
       if developMode
           @log.info("Running plugin for #{timestring}")
@@ -75,10 +81,11 @@ class OmniFocusLogger < Slogger
         values = %x{osascript <<'APPLESCRIPT'
           set filter to "#{filter}"
           set dteToday to setDate("#{timestring}")
+          set dteTomorrow to setDate("#{tomorrowString}")
           tell application "OmniFocus"
           	tell default document
           		if filter is equal to "NONE" then
-          			set refDoneToday to a reference to (flattened tasks where (completion date ≥ dteToday))
+          			set refDoneToday to a reference to (flattened tasks where (completion date ≥ dteToday) and (completion date < dteTomorrow))
           		else
           			set refDoneToday to a reference to (flattened tasks where (completion date ≥ dteToday) and name of containing project's folder = filter)
 
@@ -142,6 +149,8 @@ class OmniFocusLogger < Slogger
           end replaceText
         APPLESCRIPT}
 
+        @log.warn(values)
+
         unless values.strip.empty?
           unless filter == "NONE"
             output += "\n## Tasks in #{filter}\n"
@@ -186,6 +195,10 @@ class OmniFocusLogger < Slogger
       # Create a journal entry
       unless output == ''
         options = {}
+        timeformatted = currentDate.strftime('%Y-%m-%dT23:55:00')
+        dateandtime = Time.strptime(timeformatted, '%Y-%m-%dT%H:%M:%S')
+        timestamp = dateandtime.utc.iso8601
+        options['datestamp'] = timestamp
         options['content'] = "# OmniFocus - Completed Tasks\n\n#{text_completed}#{output}#{tags}"
         sl = DayOne.new
         sl.to_dayone(options)
