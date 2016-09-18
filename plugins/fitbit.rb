@@ -4,8 +4,11 @@
  Author: Patrice Brend'amour
 
  Notes:
- 1. To run this plugin you need to install the fitgem gem first:
- $ sudo gem install fitgem
+ 1. To run this plugin you need to install the git version fitgem gem first. The easiest way to do this is to run the following commands:
+     git clone https://github.com/whazzmaster/fitgem
+     cd fitgem
+     rake build
+     sudo gem install pkg/fitgem-1.0.0.gem
  2. Afterwards you can aquire a valid Fitbit Consumer token: http://dev.fitbit.com if you want to use your own. A default one is provided.
  3. Upon first start, the plugin will ask you to open a URL and authorize the access to your data
 
@@ -16,10 +19,9 @@ config = {
     'fitbit_description' => [
     'Grabs todays fitbit stats. See fitbit.com',
     'fitbit_unit_system defines the unit system used. Values: METRIC, US, UK.  (default is US)'],
-    'fitbit_consumer_key' => 'f6ec3c9a6996485bbc20e8296f25c671',
-    'fitbit_consumer_secret' => '0af53444fc28434fbc9a88f3cad84764',
-    'fitbit_oauth_token' => '',
-    'fitbit_oauth_secret' => '',
+    'fitbit_client_id' => '',
+    'fitbit_client_secret' => '',
+    'fitbit_refresh_token' => '',
     'fitbit_unit_system' => 'US',
     'fitbit_tags' => '#activities',
     'fitbit_log_water' => true,
@@ -40,7 +42,7 @@ class FitbitLogger < Slogger
             config = @config[self.class.name]
 
             # Check that the user has configured the plugin
-            if !config.key?('fitbit_consumer_key') || config['fitbit_consumer_secret'] == ""
+            if !config.key?('fitbit_client_id') || config['fitbit_client_secret'] == ""
                 @log.warn("Fitbit has not been configured, please create an application at http://dev.fitbit.com.")
                 return
             end
@@ -52,52 +54,58 @@ class FitbitLogger < Slogger
         # ============================================================
         # Init fitgem client
 
-        oauth_token = config['fitbit_oauth_token']
-        oauth_secret = config['fitbit_oauth_secret']
-        fitbit_consumer_key = config['fitbit_consumer_key']
-        fitbit_consumer_secret = config['fitbit_consumer_secret']
-
-        client = Fitgem::Client.new(:consumer_key => fitbit_consumer_key, :consumer_secret => fitbit_consumer_secret, :ssl => true, :unit_system => translateUnitSystem(config['fitbit_unit_system']))
+        refresh_token = config['fitbit_refresh_token']
+        fitbit_client_id = config['fitbit_client_id']
+        fitbit_client_secret = config['fitbit_client_secret']
+        redirect_uri = 'https://localhost:3000'
+        token_url = 'https://api.fitbit.com/oauth2/token'
+        auth_url = "https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=#{fitbit_client_id}&redirect_uri=#{redirect_uri}&scope=activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight&expires_in=604800"
         developMode = $options[:develop]
 
 
         # ============================================================
         # request oauth token if needed
-        @log.info("#{oauth_token}")
-        if  !oauth_token.nil? && !oauth_secret.nil? && !oauth_token.empty? && !oauth_secret.empty?
-            access_token = client.reconnect(oauth_token, oauth_secret)
+        if  !refresh_token.nil? && !refresh_token.empty?
+          uri = URI.parse(token_url)
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.use_ssl = true
+          request = Net::HTTP::Post.new(uri.request_uri)
+          request.basic_auth(fitbit_client_id, fitbit_client_secret)
+          request['Content-Type'] = 'application/x-www-form-urlencoded'
+          request.set_form_data(
+            'grant_type' => 'refresh_token',
+            'refresh_token' => refresh_token)
+          response = http.request(request)
+          response_json = JSON.parse(response.body)
+          config['fitbit_refresh_token'] = response_json['refresh_token']
+          access_token = response_json['access_token']
         else
-            request_token = client.request_token
-            token = request_token.token
-            secret = request_token.secret
-            @log.info("Fitbit requires configuration, please run from the command line and follow the prompts")
-            puts
-            puts "------------- Fitbit Configuration --------------"
-            puts "Slogger will now open an authorization page in your default web browser. Copy the code you receive and return here."
-            print "Press Enter to continue..."
-            gets
-            %x{open "http://www.fitbit.com/oauth/authorize?oauth_token=#{token}"}
-            print "Paste the code you received here: "
-            verifier = gets.strip
-
-            begin
-                access_token = client.authorize(token, secret, { :oauth_verifier => verifier })
-
-                if developMode
-                    @log.info("Verifier is: "+verifier)
-                    @log.info("Token is:    "+access_token.token)
-                    @log.info("Secret is:   "+access_token.secret)
-                end
-
-                config['fitbit_oauth_token'] = access_token.token;
-                config['fitbit_oauth_secret'] = access_token.secret
-                @log.info("Fitbit successfully configured, run Slogger again to continue")
-            rescue
-                @log.error("Failed to authorize Fitbit. Please try again")
-            end
-            return config
+          @log.info('Fitbit requires configuration, please run from the command line and follow the prompts')
+          puts
+          puts 'Slogger will now open an authorization page in your default web browser. Copy the code located in the URL and return here.'
+          print 'Press Enter to continue...'
+          gets
+          `open '#{auth_url}'`
+          print 'Paste the code you received here: '
+          code = gets.strip
+          uri = URI.parse(token_url)
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.use_ssl = true
+          request = Net::HTTP::Post.new(uri.request_uri)
+          request.basic_auth(fitbit_client_id, fitbit_client_secret)
+          request['Content-Type'] = 'application/x-www-form-urlencoded'
+          request.set_form_data(
+            'clientId' => fitbit_client_id,
+            'grant_type' => 'authorization_code',
+            'redirect_uri' => redirect_uri,
+            'code' => code)
+          response = http.request(request)
+          response_json = JSON.parse(response.body)
+          refresh_token = response_json['refresh_token']
+          config['fitbit_refresh_token'] = refresh_token
+          access_token = response_json['access_token']
         end
-
+        client = Fitgem::Client.new(:consumer_key => fitbit_client_id, :consumer_secret => fitbit_client_secret, :ssl => true, :unit_system => translateUnitSystem(config['fitbit_unit_system']), :token => access_token)
         # ============================================================
         # iterate over the days and create entries
         $i = 0
@@ -266,5 +274,3 @@ class Meal
         @calories
     end
 end
-
-
