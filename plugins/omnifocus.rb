@@ -90,17 +90,17 @@ class OmniFocusLogger < Slogger
           			set refDoneToday to a reference to (flattened tasks where (completion date ≥ dteToday) and name of containing project's folder = filter)
 
           		end if
-          		set {lstName, lstContext, lstProject, lstNote} to {name, name of its context, name of its containing project, note} of refDoneToday
+          		set {lstName, lsttag, lstProject, lstNote} to {name, name of its tag, name of its containing project, note} of refDoneToday
           		set strText to ""
 
           		set numberOfItems to count of lstName
           		repeat with iTask from 1 to numberOfItems
-          			set {strName, varContext, varProject, varNote} to {item iTask of lstName, item iTask of lstContext, item iTask of lstProject, item iTask of lstNote}
+          			set {strName, vartag, varProject, varNote} to {item iTask of lstName, item iTask of lsttag, item iTask of lstProject, item iTask of lstNote}
 
-          			set contextString to "null"
+          			set tagString to "null"
           			set projectString to "null"
           			set noteString to "null"
-          			if varContext is not missing value then set contextString to varContext
+          			if vartag is not missing value then set tagString to vartag
           			if varProject is not missing value then set projectString to varProject
           			if varNote is not missing value then set noteString to varNote
 
@@ -108,7 +108,7 @@ class OmniFocusLogger < Slogger
 
           			set delimiterString to "##__##"
 
-          			set strText to strText & strName & delimiterString & projectString & delimiterString & contextString & delimiterString & noteString & linefeed
+          			set strText to strText & strName & delimiterString & projectString & delimiterString & tagString & delimiterString & noteString & linefeed
 
           		end repeat
           	end tell
@@ -167,12 +167,12 @@ class OmniFocusLogger < Slogger
             rescue
             end
 
-            name, project, context, note = value.split("##__##")
+            name, project, tag, note = value.split("##__##")
 
             taskString = "## #{name}\n "
 
-            if context != "null"
-              taskString += "*Context:* #{context} \n"
+            if tag != "null"
+              taskString += "*tags:* #{tag} \n"
             end
             if project != "null"
               taskString += "*Project:* #{project}\n"
